@@ -12,19 +12,13 @@
 #include "ws2812b_dma_spi_led_driver.h"
 #include "color_utilities.h"
 
+int32_t count = 0;
+
 #if 1
 // Convert from 8-bit to 16 bit values
 
 // table of 8-bit values for conversion
-uint32_t clut[] =
-{
-	0x000000ff,	// Red
-	0x0000ff00, // Green
-	0x0000ffff, // Yellow
-	0x00ff0000, // Blue
-	0x00ff00ff,	// Magenta	
-	0x00ffff00,	// Cyan
-};
+uint32_t clut[6];
 
 // this version converts from 8 to 16 (filling lower 8 with zeros
 // and skips the two unused LED positions at locations 2-5
@@ -80,8 +74,6 @@ uint32_t WS2812BLEDCallback( int ledno )
 }
 #endif
 
-
-int32_t count = 0;
 int main()
 {
 	SystemInit48HSI();
@@ -97,17 +89,26 @@ int main()
 
 	while(1)
 	{
-		// Wait for LEDs to totally finish.
+		// flash the white LED
 		GPIOC->BSHR = 1;
-		Delay_Ms( 250 );
+		Delay_Ms( 25 );
 		GPIOC->BSHR = (1<<16);
-		Delay_Ms( 250 );
-
-		while( WS2812BLEDInUse );
-
-		//count = (count + 1) & 0xff;
-		printf("count = %lu\n\r", count);
+		Delay_Ms( 25 );
 		
+		// Wait for LEDs to totally finish.
+		while( WS2812BLEDInUse );
+		
+		// advance the hue offset
+		count = (count + 1) & 0xff;
+		//printf("count = %lu\n\r", count);
+		
+		// fill LUT with rotating hues
+		for(int i=0, hue = 0;i<6;i++, hue+=42)
+		{
+			clut[i] = EHSVtoHEX((hue+count)&0xff, 0xff, 0xff);
+		}
+		
+		// send the LUT to the LEDs
 		WS2812BDMAStart( NR_LEDS );
 	}
 }

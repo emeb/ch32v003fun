@@ -39,4 +39,5 @@ for a total of 16 words sent to the driver.
 
 ## Use
 Flash this code to the ch32v003f4u6_with_wsleds board. Observe that the white
-PC0 led flashes about 1Hz and the six RGB LEDs light up in six different colors.
+PC0 led flashes about 1Hz and the six RGB LEDs light up in six different colors
+that slowly rotate around the color wheel.
