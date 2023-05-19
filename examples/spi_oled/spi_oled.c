@@ -16,6 +16,7 @@
 #include <stdio.h>
 #include "ssd1306_spi.h"
 #include "ssd1306.h"
+#include "fritz.h"
 
 /* White Noise Generator State */
 #define NOISE_BITS 8
@@ -124,6 +125,61 @@ void conway(uint8_t *buf)
 	/* update final column */
 	for(y=0;y<(SSD1306_H>>3);y++)
 		buf[127+SSD1306_W*y] = col[colidx][y];
+}
+
+/* line buffer for error diffusion */
+int16_t lines[2][128];
+
+/*
+ * render grayscale map to oled with Floyd-Steinberg error diffusion
+ */
+void oled_gray_fs(uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t *bmp)
+{
+	uint8_t dx, dy;
+	uint8_t *b = bmp;
+	uint8_t oldpix, newpix;
+	int16_t err;
+	int16_t thr;
+    
+	/* copy first two lines */
+	for(dy=0;dy<2;dy++)
+	{
+		for(dx=0;dx<w;dx++)
+		{
+			lines[dy][dx] = *b++;
+		}
+	}
+    
+    /* dither the threshold a bit */
+    thr = 124 + (rand8()&0x7);
+	
+	/* scan thru & do diffusion */
+	for(dy=0;dy<h;dy++)
+	{
+		for(dx=0;dx<w;dx++)
+		{
+			/* quantize */
+			oldpix = lines[0][dx];
+			newpix = (oldpix>thr) ? 255 : 0;
+			
+			/* plot point */
+			ssd1306_drawPixel(x+dx, y+dy, (newpix>0) ? 1 : 0);
+			err = oldpix-newpix;
+			
+			/* update diffusion */
+			if(dx<(w-1)) lines[0][dx+1] += ((7*err)>>4);
+			if(dx>0) lines[1][dx-1] += ((3*err)>>4);
+			lines[1][dx] += ((5*err)>>4);
+			if(dx<(w-1)) lines[1][dx+1] += (err>>4);
+		}
+		
+		/* advance diffusion */
+		for(dx=0;dx<w;dx++)
+		{
+			lines[0][dx] = lines[1][dx];
+			if(dy<(h-1)) lines[1][dx] = *b++;
+		}
+	}
 }
 
 int count = 0;
@@ -241,7 +297,8 @@ int main()
 				Delay_Ms(2000);
 			}
 		}
-#else
+#endif
+#if 0
 		printf("Looping...\n\r");
 		while(1)
 		{
@@ -266,6 +323,13 @@ int main()
 			printf("count = %d\n\r", count++);
 		
 			Delay_Ms(2000);
+		}
+#endif
+#if 1
+		while(1)
+		{
+			oled_gray_fs(0, 0, 64, 64, (uint8_t *)fritz_bw);
+			ssd1306_refresh();
 		}
 #endif
 	}
