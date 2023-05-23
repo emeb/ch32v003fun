@@ -71,6 +71,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 typedef void * mbstate_t;
 
+#ifdef UNICODE
 size_t wcrtomb(char *restrict s, wchar_t wc, mbstate_t *restrict st)
 {
 	if (!s) return 1;
@@ -108,6 +109,7 @@ int wctomb(char *s, wchar_t wc)
 	if (!s) return 0;
 	return wcrtomb(s, wc, 0);
 }
+#endif
 size_t strlen(const char *s) { const char *a = s;for (; *s; s++);return s-a; }
 size_t strnlen(const char *s, size_t n) { const char *p = memchr(s, 0, n); return p ? p-s : n;}
 void *memset(void *dest, int c, size_t n) { unsigned char *s = dest; for (; n; n--, s++) *s = c; return dest; }
@@ -658,6 +660,10 @@ mini_pprintf(int (*puts)(char*s, int len, void* buf), void* buf, const char *fmt
 	Copyright 2023 Charles Lohr, under the MIT-x11 or NewBSD licenses, you choose.
 */
 
+#ifdef CPLUSPLUS
+// Method to call the C++ constructors
+void __libc_init_array(void);
+#endif
 
 int main() __attribute__((used));
 void SystemInit( void ) __attribute__((used));
@@ -798,9 +804,15 @@ asm volatile(
 	addi a0, a0, 4\n\
 	addi a1, a1, 4\n\
 	bne a1, a2, 1b\n\
-2:\n" );
+2:\n"
+#ifdef CPLUSPLUS
+	// Call __libc_init_array function
+"	call %0 \n\t"
+: : "i" (__libc_init_array) :
+#endif
+);
 
-	SysTick->CTLR = 1;
+	SETUP_SYSTICK_HCLK
 
 	// set mepc to be main as the root app.
 asm volatile(
@@ -971,3 +983,29 @@ void DelaySysTick( uint32_t n )
 	while( ((int32_t)( SysTick->CNT - targend )) < 0 );
 }
 
+// C++ Support
+
+#ifdef CPLUSPLUS
+// This is required to allow pure virtual functions to be defined.
+extern void __cxa_pure_virtual() { while (1); }
+
+// These magic symbols are provided by the linker.
+extern void (*__preinit_array_start[]) (void) __attribute__((weak));
+extern void (*__preinit_array_end[]) (void) __attribute__((weak));
+extern void (*__init_array_start[]) (void) __attribute__((weak));
+extern void (*__init_array_end[]) (void) __attribute__((weak));
+
+void __libc_init_array(void)
+{
+	size_t count;
+	size_t i;
+
+	count = __preinit_array_end - __preinit_array_start;
+	for (i = 0; i < count; i++)
+		__preinit_array_start[i]();
+
+	count = __init_array_end - __init_array_start;
+	for (i = 0; i < count; i++)
+		__init_array_start[i]();
+}
+#endif

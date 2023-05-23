@@ -4,10 +4,6 @@
 #include "ch32v003fun.h"
 #include <stdio.h>
 
-#define APB_CLOCK SYSTEM_CORE_CLOCK
-
-uint32_t count;
-
 int main()
 {
 	SystemInit48HSI();
@@ -35,7 +31,5 @@ int main()
 		GPIOD->BSHR = (1<<16) | (1<<(16+4)); // Turn off GPIODs
 		GPIOC->BSHR = (1<<16);
 		Delay_Ms( 250 );
-		count++;
 	}
 }
-
